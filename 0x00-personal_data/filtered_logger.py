@@ -1,58 +1,102 @@
 #!/usr/bin/env python3
 """
-filtered_logger module - Contains functions related to logging user data with obfuscation
+Filtered Logger module
 """
 
 import logging
-import csv
 import re
 from typing import List
+import os
+import mysql.connector
 
-PII_FIELDS = ("name", "email", "phone", "ssn", "password")
 
 class RedactingFormatter(logging.Formatter):
-    """ Redacting Formatter class """
+    """ Redacting Formatter class
+    """
+
     REDACTION = "********"
-    FORMAT = "[HOLBERTON] %(name)s %(levelname)s %(asctime)s - %(message)s"
+    FORMAT = "[HOLBERTON] %(name)s %(levelname)s %(asctime)-15s: %(message)s"
     SEPARATOR = ";"
 
-    def __init__(self):
-        super(RedactingFormatter, self).__init__(self.FORMAT)
+    def __init__(self, fields: List[str]):
+        """ Initialize the RedactingFormatter object.
+
+        Args:
+            fields (List[str]): List of fields to obfuscate in the log message.
+        """
+        super().__init__(self.FORMAT)
+        self.fields = fields
 
     def format(self, record: logging.LogRecord) -> str:
-        return filter_datum(PII_FIELDS, self.REDACTION, super().format(record), self.SEPARATOR)
+        """ Format the log message.
+
+        Args:
+            record (logging.LogRecord): The log record to format.
+
+        Returns:
+            str: The formatted log message.
+        """
+        return filter_datum(self.fields, self.REDACTION, super().format(record), self.SEPARATOR)
+
 
 def filter_datum(fields: List[str], redaction: str, message: str, separator: str) -> str:
-    """
-    Obfuscate the specified fields in the log message.
+    """ Filter and obfuscate certain fields in the log message.
 
     Args:
-        fields (List[str]): List of strings representing all fields to obfuscate.
-        redaction (str): The string representing by what the field will be obfuscated.
-        message (str): The log line to be obfuscated.
-        separator (str): The string representing by which character is separating all fields in the log line.
+        fields (List[str]): List of fields to obfuscate.
+        redaction (str): The string used for obfuscation.
+        message (str): The log message.
+        separator (str): The character separating all fields in the log message.
 
     Returns:
-        str: The log message with obfuscated fields.
+        str: The obfuscated log message.
     """
-    return re.sub(rf"({'|'.join(fields)})=.*?{separator}", f"\\1={redaction}{separator}", message)
+    for field in fields:
+        pattern = r"(?<={}=)(.*?)(?={})".format(field, separator)
+        message = re.sub(pattern, redaction, message)
+    return message
+
 
 def get_logger() -> logging.Logger:
-    """
-    Returns a logger named "user_data" that logs up to logging.INFO level.
-    It does not propagate messages to other loggers and has a StreamHandler with RedactingFormatter as formatter.
+    """ Return a logging.Logger object named "user_data".
+
+    The logger should log up to logging.INFO level, should not propagate messages to other loggers,
+    and should have a StreamHandler with RedactingFormatter as the formatter.
 
     Returns:
-        logging.Logger: The logger object for logging user data.
+        logging.Logger: The "user_data" logger object.
     """
     logger = logging.getLogger("user_data")
     logger.setLevel(logging.INFO)
 
-    formatter = RedactingFormatter()
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
+    handler = logging.StreamHandler()
+    handler.setFormatter(RedactingFormatter(PII_FIELDS))
+    logger.addHandler(handler)
 
-    logger.addHandler(stream_handler)
     return logger
 
+
+def get_db() -> mysql.connector.connection.MySQLConnection:
+    """ Return a connector to the secure Holberton database.
+
+    The database credentials are obtained from environment variables
+    PERSONAL_DATA_DB_USERNAME, PERSONAL_DATA_DB_PASSWORD, PERSONAL_DATA_DB_HOST, and PERSONAL_DATA_DB_NAME.
+
+    Returns:
+        mysql.connector.connection.MySQLConnection: The connector to the database.
+    """
+    username = os.getenv("PERSONAL_DATA_DB_USERNAME", "root")
+    password = os.getenv("PERSONAL_DATA_DB_PASSWORD", "")
+    host = os.getenv("PERSONAL_DATA_DB_HOST", "localhost")
+    db_name = os.getenv("PERSONAL_DATA_DB_NAME")
+
+    return mysql.connector.connect(
+        user=username,
+        password=password,
+        host=host,
+        database=db_name
+    )
+
+
+PII_FIELDS = ['name', 'email', 'phone', 'ssn', 'password']
 
