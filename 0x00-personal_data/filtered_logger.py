@@ -100,3 +100,20 @@ def get_db() -> mysql.connector.connection.MySQLConnection:
 
 PII_FIELDS = ['name', 'email', 'phone', 'ssn', 'password']
 
+
+def main():
+    """ Main function to retrieve all rows from the users table and display each row in a filtered format.
+    """
+    db = get_db()
+    cursor = db.cursor()
+    query = "SELECT * FROM users"
+    cursor.execute(query)
+    for row in cursor.fetchall():
+        log_record = "; ".join([f"{field}={value}" for field, value in zip(PII_FIELDS, row)])
+        logger = get_logger()
+        logger.info(log_record)
+
+
+if __name__ == "__main__":
+    main()
+
