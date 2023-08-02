@@ -113,6 +113,19 @@ def hash_password(password: str) -> bytes:
     return hashed_password
 
 
+def is_valid(hashed_password: bytes, password: str) -> bool:
+    """ Validate the provided password against the hashed password.
+
+    Args:
+        hashed_password (bytes): The salted, hashed password.
+        password (str): The plain text password to validate.
+
+    Returns:
+        bool: True if the provided password matches the hashed password, False otherwise.
+    """
+    return bcrypt.checkpw(password.encode('utf-8'), hashed_password)
+
+
 PII_FIELDS = ['name', 'email', 'phone', 'ssn', 'password']
 
 
